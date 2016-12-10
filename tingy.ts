@@ -7,14 +7,50 @@ interface Guard {
 }
 type GuardAnswerer = (query: Query) => boolean;
 type Submission = (g1: GuardAnswerer, g2: GuardAnswerer) => Direction;
+type Engine = (submission: Submission) => Howjado;
 interface Howjado {
   message: string,
   solved: boolean
 }
 interface Justarun {
   guards: Guard[],
+  snooper: Snooper,
   answer: Direction,
+  allowed_tlqs: number,
   guess: Direction
+}
+class Snooper {
+  public tlq: number;
+
+  private level: number;
+
+  constructor() {
+    this.tlq = 0;
+    this.level = 0;
+  }
+
+  wrap(g: Guard): GuardAnswerer {
+    const snooper = this;
+    return (q: Query) => {
+      snooper.enter(g);
+      const ret = g.answerer(q);
+      snooper.exit(ret);
+      return ret;
+    }
+  }
+
+  enter(g: Guard) {
+    console.log(`Enter ${this.level} ${g.name}`);
+    if (this.level == 0) {
+      this.tlq++;
+    }
+    this.level++;
+  }
+
+  exit(ret: boolean) {
+    console.log(`Exit ${this.level} ${ret}`);
+    this.level--;
+  }
 }
 
 function makeGuard(name: string, strategy: Strategy, answer: Direction): Guard {
@@ -30,37 +66,48 @@ function makeGuard(name: string, strategy: Strategy, answer: Direction): Guard {
 }
 
 function howjado(results: Justarun[]): Howjado {
-  let solved: boolean = true;
-  let counter: Justarun = null
+  // TODO special case when the answers are all exactly flipped. Because that's pretty close.
+
   for (let r of results) {
-    const rSolved = (r.answer == r.guess);
-    solved = solved && rSolved;
-    if (!rSolved) {
-      counter = r
+    const correct = (r.guess === r.answer);
+    const legal = (r.snooper.tlq <= r.allowed_tlqs);
+    if (!correct) {
+      const guardnames = r.guards.map((g) => g.name).join(", ");
+      const message = `Not quite right. Consider when the guards are ${guardnames} and the answer path is ${r.answer}. In that case you guessed ${r.guess}.`
+      return {
+        message: message,
+        solved: false
+      }
+    }
+    if (!legal) {
+      const guardnames = r.guards.map((g) => g.name).join(", ");
+      const message = `You asked too many questions. When the guards were ${guardnames} and the answer was ${r.answer} you asked ${r.snooper.tlq} questions. Only ${r.allowed_tlqs} questions are allowed.`
+      return {
+        message: message,
+        solved: false
+      }
     }
   }
-  let message: string = "Good job!";
-  if (!solved) {
-    const guardnames = counter.guards.map((g) => g.name).join(", ");
-    message = `Not quite right. Consider when the guards are ${guardnames} and the answer path is ${counter.answer}. In that case you guessed ${counter.guess}.`
-  }
   return {
-    message: message,
-    solved: solved,
+    message: "Good job!",
+    solved: true
   }
 }
 
-function l1Engine(submission: Submission): Howjado {
+const l1Engine: Engine = function(submission: Submission): Howjado {
   const results: Justarun[] = [];
   const options: Direction[] = ["left", "right"];
   for (let answer of options) {
     const a: Guard = makeGuard("Trubert", "truther", answer);
     const b: Guard = makeGuard("Liara", "liar", answer);
     for (let [g1, g2] of [[a,b],[b,a]]) {
+      const snooper: Snooper = new Snooper();
       results.push({
         guards: [g1, g2],
         answer: answer,
-        guess: submission(g1.answerer, g2.answerer)
+        snooper: snooper,
+        allowed_tlqs: 1,
+        guess: submission(snooper.wrap(g1), snooper.wrap(g2))
       });
     }
   }
@@ -79,10 +126,10 @@ const puzzles: Puzzle[] = [{
   name: "2 Guards",
   description: "Ask one question to determine whether \"left\" or \"right\" is correct.",
   engine: l1Engine,
-  starterCode: "function(guardA, guardB) {\n" +
-    "    var query = function(direction) { return direction == \"left\"; }\n" +
-    "    return guardA(query);\n" +
-    "}",
+  starterCode: `function(guardA, guardB) {
+  var query = function(direction) { return direction == \"left\"; }
+  return guardA(query) ? "left" : "right";
+}`,
 }]
 
 /*const submission: Submission = (a, b) => {
