@@ -1,22 +1,13 @@
 <html>
   <head>
     <style type="text/css">
-      #code {
+      textarea {
         font-family: monospace;
       }
     </style>
   </head>
   <body>
     <div id="root"></div>
-    <p id="instructions"></p>
-    <p>Ask a guard a question by passing them a function that takes the correct path
-      (either "left" or "right") and returns a boolean. The guard will evaluate your
-      query, taking the correct path into consideration, and return you an answer depending
-      on the guard's own disposition.</p>
-    <textarea id="code" cols="80" rows="6"></textarea><br /><br />
-    <button id="run" onclick="evaluateIt()">Try it</button>
-    <button onclick="setPuzzle(currentPuzzle)">Reset</button>
-    <p id="result"></p>
   </body>
   <script type="text/javascript" src="bundle.js"></script>
 </html>

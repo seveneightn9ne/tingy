@@ -47,34 +47,44 @@
 	/// <reference path="typing/react.d.ts" />
 	/// <reference path="typing/react-dom.d.ts" />
 	"use strict";
-	var __extends = (this && this.__extends) || function (d, b) {
-	    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-	    function __() { this.constructor = d; }
-	    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-	};
 	var React = __webpack_require__(1);
 	var ReactDOM = __webpack_require__(32);
-	var DemoProps = (function () {
-	    function DemoProps() {
+	var tingy = __webpack_require__(178);
+	var Tingy = React.createClass({
+	    getInitialState: function () {
+	        return {
+	            currentPuzzle: tingy.puzzles[0],
+	            code: tingy.puzzles[0].starterCode,
+	            result: "",
+	            submissions: {},
+	            currentSubmission: 0
+	        };
+	    },
+	    render: function () {
+	        console.log(this.state);
+	        return (React.createElement("div", null,
+	            React.createElement("p", null, this.state.currentPuzzle.description),
+	            React.createElement("p", null, "Ask a guard a question by passing them a function that takes the correct path" + " " + "(either \"left\" or \"right\") and returns a boolean. The guard will evaluate your" + " " + "query, taking the correct path into consideration, and return you an answer depending" + " " + "on the guard's own disposition."),
+	            React.createElement("textarea", { value: this.state.code, onChange: this.changeCode, cols: 80, rows: 6 }),
+	            React.createElement("br", null),
+	            React.createElement("br", null),
+	            React.createElement("button", { onClick: this.tryIt }, "Try it"),
+	            React.createElement("button", { onClick: this.reset }, "Reset"),
+	            React.createElement("p", null, this.state.result)));
+	    },
+	    changeCode: function (event) {
+	        console.log("hi");
+	        console.log(event.target.value);
+	        this.setState({ code: event.target.value });
+	    },
+	    tryIt: function () {
+	        this.setState({ result: tingy.evaluateIt(this.state.code) });
+	    },
+	    reset: function () {
+	        this.setState({ code: this.state.currentPuzzle.starterCode, result: "" });
 	    }
-	    return DemoProps;
-	}());
-	var Demo = (function (_super) {
-	    __extends(Demo, _super);
-	    function Demo(props) {
-	        var _this = _super.call(this, props) || this;
-	        _this.foo = 42;
-	        return _this;
-	    }
-	    Demo.prototype.render = function () {
-	        return React.createElement("div", null,
-	            "Hello world! You are ",
-	            this.props.name,
-	            ".");
-	    };
-	    return Demo;
-	}(React.Component));
-	ReactDOM.render(React.createElement(Demo, { name: "Jess" }), document.getElementById('root'));
+	});
+	ReactDOM.render(React.createElement(Tingy, null), document.getElementById('root'));
 
 
 /***/ },
@@ -21483,6 +21493,102 @@
 
 	module.exports = ReactDOMInvalidARIAHook;
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(3)))
+
+/***/ },
+/* 178 */
+/***/ function(module, exports) {
+
+	"use strict";
+	function makeGuard(name, strategy, answer) {
+	    return {
+	        name: name,
+	        answerer: function (q) {
+	            var truth = q(answer);
+	            if (strategy == "truther")
+	                return truth;
+	            else if (strategy == "liar")
+	                return !truth;
+	            else if (strategy == "random")
+	                return !!Math.floor(Math.random() + 1);
+	        }
+	    };
+	}
+	function howjado(results) {
+	    var solved = true;
+	    var counter = null;
+	    for (var _i = 0, results_1 = results; _i < results_1.length; _i++) {
+	        var r = results_1[_i];
+	        var rSolved = (r.answer == r.guess);
+	        solved = solved && rSolved;
+	        if (!rSolved) {
+	            counter = r;
+	        }
+	    }
+	    var message = "Good job!";
+	    if (!solved) {
+	        var guardnames = counter.guards.map(function (g) { return g.name; }).join(", ");
+	        message = "Not quite right. Consider when the guards are " + guardnames + " and the answer path is " + counter.answer + ". In that case you guessed " + counter.guess + ".";
+	    }
+	    return {
+	        message: message,
+	        solved: solved
+	    };
+	}
+	function l1Engine(submission) {
+	    var results = [];
+	    var options = ["left", "right"];
+	    for (var _i = 0, options_1 = options; _i < options_1.length; _i++) {
+	        var answer = options_1[_i];
+	        var a = makeGuard("Trubert", "truther", answer);
+	        var b = makeGuard("Liara", "liar", answer);
+	        for (var _a = 0, _b = [[a, b], [b, a]]; _a < _b.length; _a++) {
+	            var _c = _b[_a], g1 = _c[0], g2 = _c[1];
+	            results.push({
+	                guards: [g1, g2],
+	                answer: answer,
+	                guess: submission(g1.answerer, g2.answerer)
+	            });
+	        }
+	    }
+	    return howjado(results);
+	}
+	exports.puzzles = [{
+	        name: "2 Guards",
+	        description: "Ask one question to determine whether \"left\" or \"right\" is correct.",
+	        engine: l1Engine,
+	        starterCode: "function(guardA, guardB) {\n" +
+	            "    var query = function(direction) { return direction == \"left\"; }\n" +
+	            "    return guardA(query);\n" +
+	            "}"
+	    }];
+	/*const submission: Submission = (a, b) => {
+	  // Excuse me, dearest A. What would you say if I asked you,
+	  // "is left the answer path?"
+	  return {"true": "left", "false": "right"}[String(a((_) => a((answer) => answer == "left")))];
+	}
+
+	const badSubmission: Submission = (a, b) => {
+	  return "left"
+	}*/
+	function evaluateIt(code) {
+	    try {
+	        eval("submission[" + currentSubmission + "] = " + code);
+	        return l1Engine(submission[currentSubmission]).message;
+	    }
+	    catch (ex) {
+	        return "<b>There was an error running your code." +
+	            " Here is the exception:</b><br>" + ex.message;
+	    }
+	    finally {
+	        currentSubmission++;
+	    }
+	}
+	exports.evaluateIt = evaluateIt;
+	var submission = {};
+	var currentPuzzle = exports.puzzles[0];
+	var currentSubmission = 0;
+	//setPuzzle(currentPuzzle);
+
 
 /***/ }
 /******/ ]);

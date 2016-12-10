@@ -115,14 +115,14 @@ const l1Engine: Engine = function(submission: Submission): Howjado {
   return howjado(results);
 }
 
-interface Puzzle {
+export interface Puzzle {
   name: string,
   description: string,
   engine: (submission: Submission) => Howjado,
   starterCode: string,
 }
 
-const puzzles: Puzzle[] = [{
+export const puzzles: Puzzle[] = [{
   name: "2 Guards",
   description: "Ask one question to determine whether \"left\" or \"right\" is correct.",
   engine: l1Engine,
@@ -142,40 +142,19 @@ const badSubmission: Submission = (a, b) => {
   return "left"
 }*/
 
-function setPuzzle(puzzle: Puzzle, confirm = false): void {
-  const currentCode = document.getElementById('code').value;
-  if (confirm && currentCode != "" && currentCode != currentPuzzle.starterCode) {
-    if (!confirm("Clear out your current code?")) {
-      console.log("Aborting setPuzzle.");
-      return;
-    }
-  }
-  document.getElementById('instructions').innerHTML = puzzle.description;
-  document.getElementById('code').value = puzzle.starterCode;
-  currentPuzzle = puzzle;
-}
-
-function evaluateIt(): void {
-  document.getElementById('result').innerHTML = "";
+export function evaluateIt(code: string): string {
   try {
-    eval("submission[" + currentSubmission + "] = " +
-         document.getElementById('code').value);
-    document.getElementById('result').innerHTML =
-        l1Engine(submission[currentSubmission]).message;
+    eval("submission[" + currentSubmission + "] = " + code);
+    return l1Engine(submission[currentSubmission]).message;
   } catch (ex) {
-    document.getElementById('result').innerHTML = "<b>There was an error running your code." +
+    return "<b>There was an error running your code." +
       " Here is the exception:</b><br>" + ex.message;
   } finally {
     currentSubmission++;
   }
 }
 
-/*function main(): void {
-  document.getElementById('result').innerHTML = l1Engine(badSubmission).message;
-}*/
-
-//main();
 let submission = {};
 let currentPuzzle = puzzles[0];
 let currentSubmission = 0;
-setPuzzle(currentPuzzle);
+//setPuzzle(currentPuzzle);

@@ -1,31 +1,41 @@
 /// <reference path="typing/react.d.ts" />
 /// <reference path="typing/react-dom.d.ts" />
 "use strict";
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-};
 var React = require("react");
 var ReactDOM = require("react-dom");
-var DemoProps = (function () {
-    function DemoProps() {
+var tingy = require("./tingy");
+var Tingy = React.createClass({
+    getInitialState: function () {
+        return {
+            currentPuzzle: tingy.puzzles[0],
+            code: tingy.puzzles[0].starterCode,
+            result: "",
+            submissions: {},
+            currentSubmission: 0
+        };
+    },
+    render: function () {
+        console.log(this.state);
+        return (React.createElement("div", null,
+            React.createElement("p", null, this.state.currentPuzzle.description),
+            React.createElement("p", null, "Ask a guard a question by passing them a function that takes the correct path" + " " + "(either \"left\" or \"right\") and returns a boolean. The guard will evaluate your" + " " + "query, taking the correct path into consideration, and return you an answer depending" + " " + "on the guard's own disposition."),
+            React.createElement("textarea", { value: this.state.code, onChange: this.changeCode, cols: 80, rows: 6 }),
+            React.createElement("br", null),
+            React.createElement("br", null),
+            React.createElement("button", { onClick: this.tryIt }, "Try it"),
+            React.createElement("button", { onClick: this.reset }, "Reset"),
+            React.createElement("p", null, this.state.result)));
+    },
+    changeCode: function (event) {
+        console.log("hi");
+        console.log(event.target.value);
+        this.setState({ code: event.target.value });
+    },
+    tryIt: function () {
+        this.setState({ result: tingy.evaluateIt(this.state.code) });
+    },
+    reset: function () {
+        this.setState({ code: this.state.currentPuzzle.starterCode, result: "" });
     }
-    return DemoProps;
-}());
-var Demo = (function (_super) {
-    __extends(Demo, _super);
-    function Demo(props) {
-        var _this = _super.call(this, props) || this;
-        _this.foo = 42;
-        return _this;
-    }
-    Demo.prototype.render = function () {
-        return React.createElement("div", null,
-            "Hello world! You are ",
-            this.props.name,
-            ".");
-    };
-    return Demo;
-}(React.Component));
-ReactDOM.render(React.createElement(Demo, { name: "Jess" }), document.getElementById('root'));
+});
+ReactDOM.render(React.createElement(Tingy, null), document.getElementById('root'));
