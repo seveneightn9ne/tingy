@@ -8,16 +8,17 @@ interface Guard {
 type GuardAnswerer = (query: Query) => boolean;
 type Submission = (g1: GuardAnswerer, g2: GuardAnswerer) => Direction;
 type Engine = (submission: Submission) => Howjado;
-interface Howjado {
+export interface Howjado {
   message: string,
   solved: boolean
 }
-interface Justarun {
+interface SingleRun {
   guards: Guard[],
   snooper: Snooper,
   answer: Direction,
   allowed_tlqs: number,
-  guess: Direction
+  guess: Direction,
+  error: Error,
 }
 class Snooper {
   public tlq: number;
@@ -40,7 +41,7 @@ class Snooper {
   }
 
   enter(g: Guard) {
-    console.log(`Enter ${this.level} ${g.name}`);
+    // console.log(`Enter ${this.level} ${g.name}`);
     if (this.level == 0) {
       this.tlq++;
     }
@@ -48,7 +49,7 @@ class Snooper {
   }
 
   exit(ret: boolean) {
-    console.log(`Exit ${this.level} ${ret}`);
+    // console.log(`Exit ${this.level} ${ret}`);
     this.level--;
   }
 }
@@ -58,6 +59,11 @@ function makeGuard(name: string, strategy: Strategy, answer: Direction): Guard {
     name: name,
     answerer: (q) => {
       const truth = q(answer);
+
+      if (typeof(truth) !== "boolean") {
+        throw new Error(`Guard ${name} was asked a non-boolean question`);
+      }
+
       if (strategy == "truther") return truth;
       else if (strategy == "liar") return !truth;
       else if (strategy == "random") return !!Math.floor(Math.random() + 1);
@@ -65,10 +71,18 @@ function makeGuard(name: string, strategy: Strategy, answer: Direction): Guard {
   }
 }
 
-function howjado(results: Justarun[]): Howjado {
+function howjado(results: SingleRun[]): Howjado {
   // TODO special case when the answers are all exactly flipped. Because that's pretty close.
 
   for (let r of results) {
+    if (r.error !== null) {
+      const guardnames = r.guards.map((g) => g.name).join(", ");
+      const message = `You threw an exception when the guards were ${guardnames} and the answer path was ${r.answer}. ${r.error}`
+      return {
+        message: message,
+        solved: false,
+      }
+    }
     const correct = (r.guess === r.answer);
     const legal = (r.snooper.tlq <= r.allowed_tlqs);
     if (!correct) {
@@ -95,19 +109,27 @@ function howjado(results: Justarun[]): Howjado {
 }
 
 const l1Engine: Engine = function(submission: Submission): Howjado {
-  const results: Justarun[] = [];
+  const results: SingleRun[] = [];
   const options: Direction[] = ["left", "right"];
   for (let answer of options) {
     const a: Guard = makeGuard("Trubert", "truther", answer);
     const b: Guard = makeGuard("Liara", "liar", answer);
     for (let [g1, g2] of [[a,b],[b,a]]) {
       const snooper: Snooper = new Snooper();
+      let guess: Direction = null
+      let error: Error = null
+      try {
+        guess = submission(snooper.wrap(g1), snooper.wrap(g2))
+      } catch (ex) {
+        error = ex
+      }
       results.push({
         guards: [g1, g2],
         answer: answer,
         snooper: snooper,
         allowed_tlqs: 1,
-        guess: submission(snooper.wrap(g1), snooper.wrap(g2))
+        guess: guess,
+        error: error,
       });
     }
   }
@@ -142,13 +164,15 @@ const badSubmission: Submission = (a, b) => {
   return "left"
 }*/
 
-export function evaluateIt(code: string): string {
+export function evaluateIt(code: string): Howjado {
   try {
     eval("submission[" + currentSubmission + "] = " + code);
-    return l1Engine(submission[currentSubmission]).message;
+    return l1Engine(submission[currentSubmission]);
   } catch (ex) {
-    return "<b>There was an error running your code." +
-      " Here is the exception:</b><br>" + ex.message;
+    return {
+      message: `${ex.name}: ${ex.message}`,
+      solved: false,
+    }
   } finally {
     currentSubmission++;
   }

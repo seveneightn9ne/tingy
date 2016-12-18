@@ -14,14 +14,14 @@ var Snooper = (function () {
         };
     };
     Snooper.prototype.enter = function (g) {
-        console.log("Enter " + this.level + " " + g.name);
+        // console.log(`Enter ${this.level} ${g.name}`);
         if (this.level == 0) {
             this.tlq++;
         }
         this.level++;
     };
     Snooper.prototype.exit = function (ret) {
-        console.log("Exit " + this.level + " " + ret);
+        // console.log(`Exit ${this.level} ${ret}`);
         this.level--;
     };
     return Snooper;
@@ -31,6 +31,9 @@ function makeGuard(name, strategy, answer) {
         name: name,
         answerer: function (q) {
             var truth = q(answer);
+            if (typeof (truth) !== "boolean") {
+                throw new Error("Guard " + name + " was asked a non-boolean question");
+            }
             if (strategy == "truther")
                 return truth;
             else if (strategy == "liar")
@@ -44,6 +47,14 @@ function howjado(results) {
     // TODO special case when the answers are all exactly flipped. Because that's pretty close.
     for (var _i = 0, results_1 = results; _i < results_1.length; _i++) {
         var r = results_1[_i];
+        if (r.error !== null) {
+            var guardnames = r.guards.map(function (g) { return g.name; }).join(", ");
+            var message = "You threw an exception when the guards were " + guardnames + " and the answer path was " + r.answer + ". " + r.error;
+            return {
+                message: message,
+                solved: false
+            };
+        }
         var correct = (r.guess === r.answer);
         var legal = (r.snooper.tlq <= r.allowed_tlqs);
         if (!correct) {
@@ -78,12 +89,21 @@ var l1Engine = function (submission) {
         for (var _a = 0, _b = [[a, b], [b, a]]; _a < _b.length; _a++) {
             var _c = _b[_a], g1 = _c[0], g2 = _c[1];
             var snooper = new Snooper();
+            var guess = null;
+            var error = null;
+            try {
+                guess = submission(snooper.wrap(g1), snooper.wrap(g2));
+            }
+            catch (ex) {
+                error = ex;
+            }
             results.push({
                 guards: [g1, g2],
                 answer: answer,
                 snooper: snooper,
                 allowed_tlqs: 1,
-                guess: submission(snooper.wrap(g1), snooper.wrap(g2))
+                guess: guess,
+                error: error
             });
         }
     }
@@ -107,11 +127,13 @@ const badSubmission: Submission = (a, b) => {
 function evaluateIt(code) {
     try {
         eval("submission[" + currentSubmission + "] = " + code);
-        return l1Engine(submission[currentSubmission]).message;
+        return l1Engine(submission[currentSubmission]);
     }
     catch (ex) {
-        return "<b>There was an error running your code." +
-            " Here is the exception:</b><br>" + ex.message;
+        return {
+            message: ex.name + ": " + ex.message,
+            solved: false
+        };
     }
     finally {
         currentSubmission++;
